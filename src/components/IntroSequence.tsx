@@ -12,31 +12,33 @@ export default function IntroSequence({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [ready, setReady] = useState(false);
   const FRAME_COUNT = 89;
+  const MIN_READY = 15; // start playback after 15 frames are available
 
   useEffect(() => {
     const loadedImages: HTMLImageElement[] = [];
-    let loadedCount = 0;
-
+    let count = 0;
     for (let i = 0; i < FRAME_COUNT; i++) {
       const img = new Image();
       const frameNum = i.toString().padStart(3, "0");
       img.src = `/sequence/frame_${frameNum}_delay-0.067s.webp`;
       img.onload = () => {
-        loadedCount++;
-        if (loadedCount === FRAME_COUNT) {
+        count++;
+        setLoadedCount(count);
+        if (count >= MIN_READY && !ready) setReady(true);
+        if (count === FRAME_COUNT) {
           setImages(loadedImages);
-          setLoaded(true);
         }
       };
       img.onerror = (e) => {
         console.error(`Failed to load frame ${i}`, e);
-        // Still count it to avoid hanging forever
-        loadedCount++;
-        if (loadedCount === FRAME_COUNT) {
+        count++;
+        setLoadedCount(count);
+        if (count >= MIN_READY && !ready) setReady(true);
+        if (count === FRAME_COUNT) {
           setImages(loadedImages);
-          setLoaded(true);
         }
       };
       loadedImages.push(img);
@@ -67,19 +69,17 @@ export default function IntroSequence({
   };
 
   useEffect(() => {
-    if (loaded && !playing) {
+    if (ready && !playing) {
       drawFrame(0, images);
     }
-  }, [loaded, playing, images]);
+  }, [ready, playing, images]);
 
   useEffect(() => {
-    if (playing && loaded) {
+    if (ready && playing) {
       // Play audio in sync with frame sequence
       const audio = new Audio("/intro-audio.mp3");
       audio.volume = 1.0;
-      audio.play().catch(() => {
-        // Autoplay may be blocked; audio will just be silent if so
-      });
+      audio.play().catch(() => {});
 
       let currentFrame = 0;
       let animationFrameId: number;
@@ -93,11 +93,9 @@ export default function IntroSequence({
           currentFrame++;
           lastTime = now;
         }
-
         if (currentFrame < FRAME_COUNT) {
           animationFrameId = requestAnimationFrame(renderLoop);
         } else {
-          // Add a slight delay before triggering complete to ensure last frame is drawn
           setTimeout(onComplete, 500);
         }
       };
@@ -110,7 +108,14 @@ export default function IntroSequence({
         audio.currentTime = 0;
       };
     }
-  }, [playing, loaded, images, onComplete]);
+  }, [ready, playing, images, onComplete]);
+
+  // Show a simple loading overlay while frames are still loading
+  const loadingOverlay = (
+    <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-lg font-mono">
+      Loading… {loadedCount}/{FRAME_COUNT}
+    </div>
+  );
 
   return (
     <motion.div 
@@ -121,6 +126,7 @@ export default function IntroSequence({
     >
       <canvas ref={canvasRef} className="w-full h-full object-cover opacity-80 mix-blend-screen" />
       <div className="absolute inset-0 bg-black/20" />
+      {!ready && loadingOverlay}
     </motion.div>
   );
 }
