@@ -30,6 +30,15 @@ export default function IntroSequence({
           setLoaded(true);
         }
       };
+      img.onerror = (e) => {
+        console.error(`Failed to load frame ${i}`, e);
+        // Still count it to avoid hanging forever
+        loadedCount++;
+        if (loadedCount === FRAME_COUNT) {
+          setImages(loadedImages);
+          setLoaded(true);
+        }
+      };
       loadedImages.push(img);
     }
   }, []);
