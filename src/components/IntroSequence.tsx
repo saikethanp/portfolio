@@ -169,9 +169,9 @@ export default function IntroSequence({
           className="w-full h-full object-cover"
           onEnded={handleEnded}
           onError={handleError}
-          muted
+
           playsInline
-          preload="auto"
+          autoPlay
         />
       )}
 
